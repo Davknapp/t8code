@@ -612,3 +612,13 @@ t8_dprism_linear_id (const t8_dprism_t * p, int level)
 
   return id;
 }
+
+
+int t8_dprism_is_valid(const t8_dprism_t * p)
+{
+    /*A prism is valid, if its line and triangle are valid. Or in detail:
+     * if its level and its coordinates are in the correct bounds of the root tree and
+     * its left and right neighbor*/
+    return t8_dtri_is_valid(&p->tri) && t8_dline_is_valid(&p->line) &&
+            (p->line.level == p->tri.level);
+}

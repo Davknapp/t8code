@@ -405,6 +405,14 @@ t8_default_scheme_prism_c::t8_default_scheme_prism_c (void)
   ts_context = sc_mempool_new (sizeof (t8_default_prism_t));
 }
 
+#ifdef T8_ENABLE_DEBUG
+int
+t8_default_scheme_prism_c::t8_element_is_valid (const t8_element_t * p)
+{
+    return t8_dprism_is_valid((const t8_dprism_t *) p);
+}
+#endif
+
 t8_default_scheme_prism_c::~t8_default_scheme_prism_c ()
 {
   /* This destructor is empty since the destructor of the
