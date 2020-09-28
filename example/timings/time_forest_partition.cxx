@@ -174,11 +174,11 @@ t8_time_forest_cmesh_mshfile (t8_cmesh_t cmesh, const char *vtu_prefix,
   adapt_data_t        adapt_data;
   t8_forest_t         forest, forest_adapt, forest_partition;
   double              t;
-  int                 partition_cmesh, r,i;
+  int                 partition_cmesh, r;
   const int           refine_rounds = max_level - init_level;
   int                 time_step, procs_sent;
   t8_locidx_t           ghost_sent;
-  double             adapt_time = 0, ghost_time = 0, partition_time = 0, new_time = 0, total_time;
+  double             adapt_time = 0, ghost_time = 0, partition_time = 0, new_time = 0, total_time = 0;
   sc_statinfo_t             times[5];
 
   t8_global_productionf ("Committed cmesh with"
@@ -224,7 +224,6 @@ t8_time_forest_cmesh_mshfile (t8_cmesh_t cmesh, const char *vtu_prefix,
   t8_forest_commit (forest);
   new_time += sc_MPI_Wtime();
   sc_stats_set1(&times[0], new_time, "new");
-  sc_stats_accumulate (&times[0], new_time);
   /* Set the permanent data for adapt. */
   adapt_data.normal[0] = 1;
   adapt_data.normal[1] = 1;
@@ -295,6 +294,7 @@ t8_time_forest_cmesh_mshfile (t8_cmesh_t cmesh, const char *vtu_prefix,
   }
   /* memory clean-up */
   total_time+=sc_MPI_Wtime();
+  sc_stats_accumulate (&times[0], new_time);
   sc_stats_accumulate (&times[1], adapt_time);
   sc_stats_accumulate (&times[2], ghost_time);
   sc_stats_accumulate (&times[3], partition_time);
