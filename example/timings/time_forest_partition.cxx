@@ -257,7 +257,7 @@ t8_time_forest_cmesh_mshfile (t8_cmesh_t cmesh, const char *vtu_prefix,
       if (r == refine_rounds - 1) {
 
         if (do_ghost) {
-          t8_forest_set_ghost (forest_partition, 1, T8_GHOST_FACES);
+          t8_forest_set_ghost_ext (forest_partition, 1, T8_GHOST_FACES,2);
         }
         if (do_balance) {
           t8_forest_set_balance (forest_partition, NULL, 0);
