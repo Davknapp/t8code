@@ -174,9 +174,12 @@ t8_time_forest_cmesh_mshfile (t8_cmesh_t cmesh, const char *vtu_prefix,
   adapt_data_t        adapt_data;
   t8_forest_t         forest, forest_adapt, forest_partition;
   double              t;
-  int                 partition_cmesh, r;
+  int                 partition_cmesh, r,i;
   const int           refine_rounds = max_level - init_level;
-  int                 time_step;
+  int                 time_step, procs_sent;
+  t8_locidx_t           ghost_sent;
+  double             adapt_time = 0, ghost_time = 0, partition_time = 0, new_time = 0, total_time;
+  sc_statinfo_t             times[5];
 
   t8_global_productionf ("Committed cmesh with"
                          " %lli global trees.\n",
@@ -188,6 +191,12 @@ t8_time_forest_cmesh_mshfile (t8_cmesh_t cmesh, const char *vtu_prefix,
    * cmesh in order to be able to construct the forest on it.
    * If on the other hand, the input cmesh was replicated, then we keep it
    * as replicated throughout. */
+  total_time -=sc_MPI_Wtime();
+  sc_stats_init(&times[0], "new");
+  sc_stats_init(&times[1], "adapt");
+  sc_stats_init(&times[2], "ghost");
+  sc_stats_init(&times[3], "partition");
+  sc_stats_init(&times[4], "total");
   partition_cmesh = t8_cmesh_is_partitioned (cmesh);
   if (partition_cmesh) {
     /* Set up cmesh_partition to be a repartition of cmesh. */
@@ -204,13 +213,18 @@ t8_time_forest_cmesh_mshfile (t8_cmesh_t cmesh, const char *vtu_prefix,
   }
   /* Initialize forest and set cmesh */
   t8_forest_init (&forest);
+  t8_forest_set_profiling(forest,1);
   t8_forest_set_cmesh (forest, cmesh_partition, comm);
   /* Set the element scheme */
   t8_forest_set_scheme (forest, t8_scheme_new_default_cxx ());
   /* Set the initial refinement level */
   t8_forest_set_level (forest, init_level);
   /* Commit the forest */
+  new_time -=sc_MPI_Wtime();
   t8_forest_commit (forest);
+  new_time += sc_MPI_Wtime();
+  sc_stats_set1(&times[0], new_time, "new");
+  sc_stats_accumulate (&times[0], new_time);
   /* Set the permanent data for adapt. */
   adapt_data.normal[0] = 1;
   adapt_data.normal[1] = 1;
@@ -225,21 +239,24 @@ t8_time_forest_cmesh_mshfile (t8_cmesh_t cmesh, const char *vtu_prefix,
     for (r = 0; r < refine_rounds; r++) {
       /* TODO: profiling */
       t8_forest_init (&forest_adapt);
+      t8_forest_set_profiling(forest_adapt,1);
       t8_forest_set_adapt (forest_adapt, forest, t8_band_adapt, 0);
       /* Set the minimum and maximum x-coordinates as user data */
       adapt_data.c_min = x_min_max[0] + t;
       adapt_data.c_max = x_min_max[1] + t;
       t8_forest_set_user_data (forest_adapt, (void *) &adapt_data);
+      adapt_time -=sc_MPI_Wtime();
       t8_forest_commit (forest_adapt);
+      adapt_time +=sc_MPI_Wtime();
       /* partition the adapted forest */
       /* TODO: profiling */
       t8_forest_init (&forest_partition);
       /* partition the adapted forest */
       t8_forest_set_partition (forest_partition, forest_adapt, 0);
-
+      t8_forest_set_profiling (forest_partition, 1);
       /* If desired, create ghost elements and balance after last step */
       if (r == refine_rounds - 1) {
-        t8_forest_set_profiling (forest_partition, 1);
+
         if (do_ghost) {
           t8_forest_set_ghost (forest_partition, 1, T8_GHOST_FACES);
         }
@@ -248,7 +265,11 @@ t8_time_forest_cmesh_mshfile (t8_cmesh_t cmesh, const char *vtu_prefix,
         }
       }
       t8_forest_commit (forest_partition);
+      partition_time += t8_forest_profile_get_partition_time(forest_partition, &procs_sent);
+      ghost_time += t8_forest_profile_get_ghost_time(forest_partition, &ghost_sent);
       forest = forest_partition;
+
+
     }
 
     /* Set the vtu output name */
@@ -273,6 +294,13 @@ t8_time_forest_cmesh_mshfile (t8_cmesh_t cmesh, const char *vtu_prefix,
     /* TIME-LOOP ends here */
   }
   /* memory clean-up */
+  total_time+=sc_MPI_Wtime();
+  sc_stats_accumulate (&times[1], adapt_time);
+  sc_stats_accumulate (&times[2], ghost_time);
+  sc_stats_accumulate (&times[3], partition_time);
+  sc_stats_accumulate (&times[4], total_time);
+  sc_stats_compute(comm, 5, times);
+  sc_stats_print(t8_get_package_id(), SC_LP_ESSENTIAL, 5, times, 1, 1);
   t8_forest_unref (&forest_partition);
 }
 
