@@ -176,10 +176,11 @@ t8_time_forest_cmesh_mshfile (t8_cmesh_t cmesh, const char *vtu_prefix,
   double              t;
   int                 partition_cmesh, r;
   const int           refine_rounds = max_level - init_level;
-  int                 time_step, procs_sent;
+  int                 time_step, procs_sent, balance_round;
   t8_locidx_t           ghost_sent;
-  double             adapt_time = 0, ghost_time = 0, partition_time = 0, new_time = 0, total_time = 0;
-  sc_statinfo_t             times[5];
+  double             adapt_time = 0, ghost_time = 0, partition_time = 0, new_time = 0,
+          balance_time = 0, total_time = 0;
+  sc_statinfo_t             times[6];
 
   t8_global_productionf ("Committed cmesh with"
                          " %lli global trees.\n",
@@ -191,12 +192,13 @@ t8_time_forest_cmesh_mshfile (t8_cmesh_t cmesh, const char *vtu_prefix,
    * cmesh in order to be able to construct the forest on it.
    * If on the other hand, the input cmesh was replicated, then we keep it
    * as replicated throughout. */
-  total_time -=sc_MPI_Wtime();
   sc_stats_init(&times[0], "new");
   sc_stats_init(&times[1], "adapt");
   sc_stats_init(&times[2], "ghost");
   sc_stats_init(&times[3], "partition");
-  sc_stats_init(&times[4], "total");
+  sc_stats_init(&times[4], "balance");
+  sc_stats_init(&times[5], "total");
+  total_time -=sc_MPI_Wtime();
   partition_cmesh = t8_cmesh_is_partitioned (cmesh);
   if (partition_cmesh) {
     /* Set up cmesh_partition to be a repartition of cmesh. */
@@ -266,6 +268,7 @@ t8_time_forest_cmesh_mshfile (t8_cmesh_t cmesh, const char *vtu_prefix,
       t8_forest_commit (forest_partition);
       partition_time += t8_forest_profile_get_partition_time(forest_partition, &procs_sent);
       ghost_time += t8_forest_profile_get_ghost_time(forest_partition, &ghost_sent);
+      balance_time += t8_forest_profile_get_balance_time(forest_partition, &balance_round);
       forest = forest_partition;
 
 
@@ -298,9 +301,10 @@ t8_time_forest_cmesh_mshfile (t8_cmesh_t cmesh, const char *vtu_prefix,
   sc_stats_accumulate (&times[1], adapt_time);
   sc_stats_accumulate (&times[2], ghost_time);
   sc_stats_accumulate (&times[3], partition_time);
-  sc_stats_accumulate (&times[4], total_time);
-  sc_stats_compute(comm, 5, times);
-  sc_stats_print(t8_get_package_id(), SC_LP_ESSENTIAL, 5, times, 1, 1);
+  sc_stats_accumulate (&times[4], balance_time);
+  sc_stats_accumulate (&times[5], total_time);
+  sc_stats_compute(comm, 6, times);
+  sc_stats_print(t8_get_package_id(), SC_LP_ESSENTIAL, 6, times, 1, 1);
   t8_forest_unref (&forest_partition);
 }
 
