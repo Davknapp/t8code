@@ -189,3 +189,56 @@ t8_cmesh_uniform_bounds (t8_cmesh_t cmesh, int level,
               "does not support pyramidal elements yet.");
   }*/
 }
+
+
+void
+t8_cmesh_uniform_bounds_hybrid(t8_cmesh_t cmesh, int level,
+                               t8_scheme_cxx_t * ts,
+                               t8_gloidx_t * first_local_tree,
+                               t8_gloidx_t * child_in_tree_begin,
+                               t8_gloidx_t * last_local_tree,
+                               t8_gloidx_t * child_in_tree_end,
+                               int8_t * first_tree_shared, sc_MPI_Comm comm)
+{
+   t8_gloidx_t              cmesh_first_tree, local_num_children = 0, elem;
+   t8_gloidx_t              *first_element_tree;
+   t8_shmem_array_t         offset_array;
+   int                      ieclass, tree_iter;
+   int                      num_procs, my_proc_id, i, mpiret;
+   t8_eclass_scheme_c       *tree_scheme;
+   /*Compute number of local elements. Ignore shared trees*/
+   for(ieclass = T8_ECLASS_ZERO; ieclass < T8_ECLASS_COUNT; ieclass ++)
+   {
+       tree_scheme = ts->eclass_schemes[ieclass];
+       local_num_children += cmesh->num_local_trees_per_eclass[ieclass] *
+               tree_scheme->t8_element_count_leafs_from_root(level);
+   }
+   if(cmesh->first_tree_shared && cmesh->set_partition){
+
+       cmesh_first_tree = t8_cmesh_get_first_treeid(cmesh);
+       cmesh_first_tree = t8_cmesh_get_local_id(cmesh, cmesh_first_tree);
+       ieclass = t8_cmesh_get_tree_class(cmesh, cmesh_first_tree);
+       tree_scheme = ts->eclass_schemes[ieclass];
+       local_num_children -= tree_scheme->t8_element_count_leafs_from_root(level);
+   }
+
+   mpiret = sc_MPI_Comm_rank(comm, &my_proc_id);
+   SC_CHECK_MPI(mpiret);
+   sc_MPI_Comm_size(comm, &num_procs);
+   SC_CHECK_MPI(mpiret);
+
+   t8_shmem_array_init(&offset_array, sizeof(t8_gloidx_t), num_procs+1, comm);
+   /*Fill the offset array
+    * (0, l_n_c0, l_n_c_0 + l_n_c_1, l_n_c_0 + l_n_c_1 + l_n_c_2, ...) */
+   t8_shmem_prefix(&local_num_children, offset_array, 1, T8_MPI_GLOIDX, sc_MPI_SUM);
+
+
+
+
+
+
+
+   t8_shmem_array_destroy(&offset_array);
+    return;
+
+}

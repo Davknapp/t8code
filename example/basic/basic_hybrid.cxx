@@ -121,7 +121,7 @@ t8_basic_only_pyramid(t8_forest_t forest, t8_forest_t forest_from,
 }
 static void
 t8_basic_hybrid(int level, int endlvl, int do_vtk, t8_eclass_t eclass,
-                int num_elements, int mesh, int balance, const char* prefix)
+                int num_elements, int mesh, int balance, const char* prefix, int part)
 {
     t8_forest_t forest, forest_adapt, forest_partition;
     t8_cmesh_t  cmesh, cmesh_partition;
@@ -185,12 +185,14 @@ t8_basic_hybrid(int level, int endlvl, int do_vtk, t8_eclass_t eclass,
 
     mpiret = sc_MPI_Comm_rank (sc_MPI_COMM_WORLD, &mpirank);
     SC_CHECK_MPI (mpiret);
+    if(part){
+        t8_cmesh_init(&cmesh_partition);
+        t8_cmesh_set_derive(cmesh_partition, cmesh);
+        t8_cmesh_set_partition_uniform(cmesh_partition, level, t8_scheme_new_default_cxx());
+        t8_cmesh_commit(cmesh_partition, sc_MPI_COMM_WORLD);
+        cmesh = cmesh_partition;
+    }
 
-    t8_cmesh_init(&cmesh_partition);
-    t8_cmesh_set_derive(cmesh_partition, cmesh);
-    t8_cmesh_set_partition_uniform(cmesh_partition, level, t8_scheme_new_default_cxx());
-    t8_cmesh_commit(cmesh_partition, sc_MPI_COMM_WORLD);
-    cmesh = cmesh_partition;
     t8_debugf("[D] start forest\n");
     t8_forest_init(&forest);
     t8_forest_set_profiling(forest, 1);
@@ -260,7 +262,7 @@ int
 main (int argc, char **argv)
 {
   int                 mpiret, parsed;
-  int                 level, endlvl, helpme, do_vtk, eclass_int, mesh, elements, balance;
+  int                 level, endlvl, helpme, do_vtk, eclass_int, mesh, elements, balance, part;
   t8_eclass_t         eclass;
   sc_options_t        *opt;
   char                usage[BUFSIZ];
@@ -289,6 +291,7 @@ main (int argc, char **argv)
                       "The final refinement level of the mesh.");
   sc_options_add_switch(opt, 'v', "vtk", &do_vtk, "Enable vtk-output.");
   sc_options_add_switch(opt, 'b', "balance", &balance, "Enable balance");
+  sc_options_add_switch(opt, 'p', "partition", &part, "Enable cmesh-partition");
   sc_options_add_int(opt, 'e', "element", &eclass_int, 4, "Given an element-class, the programm will "
                     " construct a single element of this class. Is ignored, if the option cake is chosen."
                   "The type of elements to use.\n"
@@ -314,7 +317,7 @@ main (int argc, char **argv)
   else if(parsed >= 0 && 0 <= level && 4 <= eclass_int && eclass_int < T8_ECLASS_COUNT &&
           elements >= 2 && 0 <=mesh && mesh < 6){
       eclass = (t8_eclass_t) eclass_int;
-      t8_basic_hybrid (level, endlvl, do_vtk, eclass, elements, mesh, balance, file);
+      t8_basic_hybrid (level, endlvl, do_vtk, eclass, elements, mesh, balance, file, part);
   }
   else {
     /* wrong usage */

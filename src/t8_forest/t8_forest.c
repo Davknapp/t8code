@@ -388,9 +388,9 @@ t8_forest_commit (t8_forest_t forest)
     t8_forest_compute_maxlevel (forest);
     T8_ASSERT (forest->set_level <= forest->maxlevel);
     /* populate a new forest with tree and quadrant objects */
-    if(forest->set_level == 0){
+    /*if(forest->set_level == 0){*/
         t8_forest_populate (forest);
-    }
+    /*}
     else{
         t8_forest_t     forest_zero, forest_tmp, forest_tmp_partition;
 
@@ -416,7 +416,7 @@ t8_forest_commit (t8_forest_t forest)
         }
         t8_forest_copy_trees(forest, forest_tmp_partition, 1);
         t8_forest_unref(&forest_tmp_partition);
-    }
+    }*/
     forest->global_num_trees = t8_cmesh_get_num_trees (forest->cmesh);
   }
   else {                        /* set_from != NULL */
