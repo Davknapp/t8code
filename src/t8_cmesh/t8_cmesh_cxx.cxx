@@ -232,8 +232,22 @@ t8_cmesh_uniform_bounds_hybrid(t8_cmesh_t cmesh, int level,
     * (0, l_n_c0, l_n_c_0 + l_n_c_1, l_n_c_0 + l_n_c_1 + l_n_c_2, ...) */
    t8_shmem_prefix(&local_num_children, offset_array, 1, T8_MPI_GLOIDX, sc_MPI_SUM);
 
+   first_element_tree = (t8_gloidx_t *) T8_ALLOC_ZERO(t8_gloidx_t, cmesh->num_local_trees+1);
+   first_element_tree[0] = t8_shmem_array_get_gloidx(offset_array, my_proc_id);
 
+   for(i = 1, tree_iter = cmesh_first_tree; i<=cmesh->num_local_trees; i++, tree_iter++)
+   {
+       tree_scheme = ts->eclass_schemes[ieclass];
+       first_element_tree[i] = first_element_tree[i-1]
+               + tree_scheme->t8_element_count_leafs_from_root(level);
+   }
+   for(i = 0; i<=cmesh->num_local_trees; i++)
+   {
+       t8_debugf("te %i, ", first_element_tree[i]);
+   }
 
+   T8_ASSERT(first_element_tree[cmesh->num_local_trees] ==
+           t8_shmem_array_get_gloidx(offset_array, my_proc_id+1));
 
 
 
